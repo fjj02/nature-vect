@@ -1,0 +1,43 @@
+{
+  "source": "assets/sample.png",
+  "schema_version": "1.0",
+  "source_canvas": { "width": 402, "height": 365 },
+  "text_elements": [
+    {
+      "id": "label-biosketch",
+      "content": "BioSketch",
+      "source_bbox": [106, 40, 190, 46],
+      "x": 201,
+      "y": 74,
+      "coordinate_space": "pixels",
+      "font_size": 40,
+      "font_size_space": "pixels",
+      "font_family": "Arial",
+      "font_weight": "bold",
+      "font_style": "normal",
+      "fill": "#2f4a1e",
+      "text_anchor": "middle",
+      "rotation": 0,
+      "line_height": 1.2,
+      "paint_order": 9999
+    },
+    {
+      "id": "label-ai-platform",
+      "content": "AI 科研绘图平台",
+      "source_bbox": [106, 90, 190, 30],
+      "x": 201,
+      "y": 111,
+      "coordinate_space": "pixels",
+      "font_size": 24,
+      "font_size_space": "pixels",
+      "font_family": "Microsoft YaHei",
+      "font_weight": "normal",
+      "font_style": "normal",
+      "fill": "#2f4a1e",
+      "text_anchor": "middle",
+      "rotation": 0,
+      "line_height": 1.2,
+      "paint_order": 10000
+    }
+  ]
+}
