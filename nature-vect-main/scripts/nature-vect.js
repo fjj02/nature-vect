@@ -8,8 +8,9 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 const ENDPOINT = 'https://vectorizer-api.etoolbox.cn/v1/vectorize';
+const CREDIT_ENDPOINT = 'https://vectorizer-api.etoolbox.cn/v1/credit';
 const CONFIG_DIR = path.join(os.homedir(), '.nature-vect');
 const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
 const DEFAULT_TIMEOUT_MS = 300000;
@@ -22,6 +23,7 @@ const HELP = `nature-vect ${VERSION} —— 图片转 SVG 矢量（兼容 Adobe 
   node nature-vect.js convert <图片> -o <svg> [选项]   转换图片为 SVG
   node nature-vect.js text-inject <svg> <manifest.json> [-o <out.svg>]   把文字清单注入为可编辑 <text>（自动识别旧 texts[] 或新 schema_version 1.0 / text_elements）
   node nature-vect.js validate <svg>        输出文件结构自检
+  node nature-vect.js credit                查询剩余额度（key 读配置/环境变量/--key）
 
 key 读取优先级: --key 参数 > 环境变量 NATURE_VECT_API_KEY > 配置文件(config.json)
 key 绝不回显、绝不写入任何项目/仓库文件。
@@ -144,6 +146,54 @@ async function cmdCheck() {
   } catch (e) {
     clearTimeout(timer);
     fail(3, `网络连通性检查失败: ${e && e.message ? e.message : e}`);
+  }
+}
+
+// ---------- credit ----------
+async function cmdCredit(cliKey) {
+  const key = resolveKey(cliKey);
+  if (!key) fail(1, '未找到 API key。先运行 init，或设置 NATURE_VECT_API_KEY，或用 --key 临时传入。');
+  if (isPlaceholder(key)) fail(1, '当前 key 疑似占位符，请先通过 init 写入真实 key。');
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const res = await fetch(CREDIT_ENDPOINT, {
+      method: 'GET',
+      headers: { 'x-api-key': key },
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+
+    if (res.status === 200 || res.status === 201) {
+      let json;
+      try {
+        json = await res.json();
+      } catch {
+        fail(2, '上游返回非 JSON 响应: ' + (await res.text()).slice(0, 200));
+      }
+      const remaining = json && (json.remaining ?? json.credit ?? json.credits ?? json.quota);
+      if (remaining === undefined || remaining === null) {
+        log(JSON.stringify({ ok: true, remaining: null, raw: json }));
+        log('响应中未解析到额度字段，请查看上方原始返回。');
+        return;
+      }
+      log(JSON.stringify({ ok: true, remaining }));
+      log(`剩余额度：${remaining} 次（1 次 ≈ 1 张图）`);
+      return;
+    }
+
+    if (res.status === 401 || res.status === 403) fail(2, 'key 无效或无权限（HTTP ' + res.status + '），请确认已用 init 写入正确的 key。');
+    if (res.status === 402) fail(2, '积分不足（HTTP 402），请充值后重试。');
+    if (res.status === 429) fail(2, '请求过于频繁（HTTP 429），请稍后再试。');
+
+    const body = (await res.text()).slice(0, 500);
+    fail(2, `上游返回 HTTP ${res.status}: ${body}`);
+  } catch (e) {
+    clearTimeout(timer);
+    const msg = e && e.message ? e.message : String(e);
+    if (e && e.name === 'AbortError') fail(3, '请求超时（>15s），请稍后重试或检查网络。');
+    fail(3, `网络请求失败: ${msg}`);
   }
 }
 
@@ -751,6 +801,13 @@ function main() {
 
   if (sub === 'check') {
     cmdCheck().catch((e) => fail(3, e && e.message ? e.message : String(e)));
+    return;
+  }
+
+  if (sub === 'credit') {
+    const idx = rest.indexOf('--key');
+    const cliKey = idx >= 0 && rest[idx + 1] ? rest[idx + 1] : undefined;
+    cmdCredit(cliKey || '').catch((e) => fail(3, e && e.message ? e.message : String(e)));
     return;
   }
 

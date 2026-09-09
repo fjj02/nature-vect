@@ -1,6 +1,6 @@
 ---
 name: nature-vect
-description: 把位图（PNG/JPG/WebP 等）转成可在 Adobe Illustrator 2019–2026 中打开的可编辑 SVG 矢量；当用户要求图中文字也可编辑时进入文字模式：先清掉位图文字再转矢量，把可编辑 <text> 注入 SVG，再请用户打开 Adobe Illustrator，由 agent 在打开的文档中绘制成可编辑文本对象并交付 .ai（无法在本机 Illustrator 中绘制时，交付可编辑 SVG 由用户另存 .ai）。当用户说“把这张图转矢量”“图片转 SVG/矢量图”“导出 Illustrator 能用的图”“文字要可编辑”“nature-vect”等时使用。首次使用需要用户提供一把 API key（向卖家购买），由 agent 调用本 skill 的 init 命令写入用户级配置。
+description: 把位图（PNG/JPG/WebP 等）转成可在 Adobe Illustrator 2019–2026 中打开的可编辑 SVG 矢量；当用户要求图中文字也可编辑时进入文字模式：先清掉位图文字再转矢量，把可编辑 <text> 注入 SVG，再请用户打开 Adobe Illustrator，由 agent 在打开的文档中绘制成可编辑文本对象并交付 .ai（无法在本机 Illustrator 中绘制时，交付可编辑 SVG 由用户另存 .ai）。当用户说“把这张图转矢量”“图片转 SVG/矢量图”“导出 Illustrator 能用的图”“文字要可编辑”“查询额度/还有多少额度/剩余次数”“nature-vect”等时使用。首次使用需要用户提供一把 API key（向卖家购买），由 agent 调用本 skill 的 init 命令写入用户级配置。
 license: MIT
 metadata:
   output: 基础模式=可编辑矢量 SVG（文字按字形路径保留）；文字模式=可编辑文本对象（agent 在 Adobe Illustrator 中绘制交付 .ai，双击可改字）；无法在本机绘制时兜底=带可编辑 <text> 的 .text.svg 由用户另存 .ai
@@ -22,6 +22,7 @@ metadata:
 - 用户要把一张位图图片转成矢量图 / SVG
 - 用户要为 AI 绘图 / 印刷 / 刻字机等准备矢量文件
 - 用户明确说要用 nature-vect，或要求“导出 Illustrator 能用的图”
+- 用户询问「额度 / 剩余次数 / 还能转几张」：查询剩余额度（见下方「查询剩余额度」小节）
 - 若用户同时要求“文字可编辑 / 能改字 / 要 .ai 文件且文字能改”：进入**文字模式**
 
 不适合：纯文字转换排版、需要逐像素还原的照片（矢量化会把照片变成色块，质量由第三方引擎决定）。
@@ -32,11 +33,24 @@ metadata:
 - 首次使用必须先配置 API key（见下）。key 通过脚本写入用户级配置，**不进入任何项目或仓库文件**。
 - **文字模式额外前提**：你自己具备 ①视觉看图（识别文字内容与位置）②把图中文字区域清掉的能力（局部图像编辑/清除）。缺任一能力请勿硬跑文字模式（见降级说明）。
 
+# 查询剩余额度（辅助）
+
+用户问「额度 / 还剩多少 / 剩余次数 / 还能转几张」时，运行：
+
+```bash
+node <skill目录>/scripts/nature-vect.js credit
+```
+
+- 脚本从用户级配置（`~/.nature-vect/config.json`）或环境变量 `NATURE_VECT_API_KEY` 读 key 查询额度，成功后打印剩余次数（1 次 ≈ 1 张图）。
+- 把返回的剩余次数如实转述用户；遇到 401/403 说明 key 无效需重新 init，遇到 402 提示充值，遇到网络错误则转述错误原文，**不要编造额度**。
+- key 未配置时先走「第 1 步：确认 key 已配置」的 init，再查额度。
+
 ## 模式选择（收到任务先做这个判断）
 
 1. 用户给了一张位图要求转矢量。先看原图是否含文字、用户是否提到“文字可编辑/能改字/字要能改”。
 2. **含文字且要可编辑** → 文字模式（跳到下文「主流程——文字模式」）。
 3. 否则 → 基础模式（下文「主流程——基础模式」），一把过，最快最稳。
+4. 用户没给图、只问额度 → 走上方「查询剩余额度（辅助）」。
 
 # 主流程——基础模式
 
@@ -190,7 +204,7 @@ node <skill目录>/scripts/nature-vect.js validate out.svg
 
 ## 相关文件
 
-- `scripts/nature-vect.js` —— 唯一引擎：`init / check / convert / text-inject / validate`（零依赖，Node>=18）
+- `scripts/nature-vect.js` —— 唯一引擎：`init / check / convert / text-inject / validate / credit`（零依赖，Node>=18）
 - `scripts/ai-export.jsx` —— 无 GUI 兜底：在 Illustrator 里把 SVG 另存为 .ai（agent 自动执行）
 - `scripts/prep-replay-cache.py` —— cached 绘制引擎：解析 Master SVG 出几何/批次缓存（python3+fontTools）
 - `scripts/run_nv_replay.ps1` —— cached 绘制引擎编排器（Windows COM，逐批画入 AI，断点续跑）

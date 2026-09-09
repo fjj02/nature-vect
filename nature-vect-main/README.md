@@ -11,6 +11,7 @@
 ## 它做什么
 
 - 图片 → 可编辑矢量 SVG（默认开启 Adobe 兼容模式）
+- 查询剩余额度：对 agent 说“还有多少额度 / 剩余次数”即可（`credit` 子命令），或命令行 `node scripts/nature-vect.js credit`
 - 支持预设与高级参数（描边 / 分组 / 叠放…）
 - **文字模式**：agent 视觉识别文字 → 校对 → 清字 → 转矢量 → 注入可编辑 `<text>`（Master SVG）→ **在 Illustrator 中绘制**（双引擎：cached 逐批画 / direct AI 自导入），文字为可编辑文本框，全程 agent 自动完成
 - 若你使用的 agent 具备 computer-use：可控制本机 Illustrator 完成绘制 / 验证（见 `references/direct-adobe.md` 与 `references/illustrator-computer-use.md`）
@@ -76,6 +77,7 @@ agent 会进入文字模式（先通读 `references/text-workflow.md` 与 `refer
 node scripts/nature-vect.js convert 输入.png -o 输出.svg            # 基础模式（默认 Adobe 兼容）
 node scripts/nature-vect.js text-inject base.svg manifest.json -o master.svg   # 文字模式：注入可编辑文字生成 Master
 node scripts/nature-vect.js validate out.svg                        # 结构自检
+node scripts/nature-vect.js credit                                  # 查询剩余额度
 node scripts/nature-vect.js -h                                       # 全部参数
 ```
 
@@ -99,7 +101,7 @@ node scripts/nature-vect.js -h                                       # 全部参
 ```
 nature-vect/
 ├─ SKILL.md                     # Agent Skills 元数据 + 主工作流（agent 读它，含基础/文字两模式）
-├─ scripts/nature-vect.js       # 引擎：init / check / convert / text-inject / validate（Node>=18，零依赖）
+├─ scripts/nature-vect.js       # 引擎：init / check / convert / text-inject / validate / credit（Node>=18，零依赖）
 ├─ scripts/ai-export.jsx        # 无 GUI 兜底：在 Illustrator 里把 SVG 另存为 .ai
 ├─ scripts/prep-replay-cache.py # cached 绘制引擎：解析 Master SVG 出几何/批次缓存（python3+fontTools）
 ├─ scripts/run_nv_replay.ps1    # cached 绘制引擎编排器（Windows COM，逐批画入 AI，断点续跑）
