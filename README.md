@@ -114,7 +114,10 @@ nature-vect/
 
 ## 如何获取 key
 
-> (关键点huoqu.png)
+处于刚发布阶段，每人可领取5次，免费测试额度
+> <div align="center">
+  <img src="assets/KEY huoqu.png" width="200">
+</div>
 
 
 ## 免责声明
