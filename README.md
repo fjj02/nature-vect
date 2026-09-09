@@ -27,12 +27,8 @@
 
 | agent | 个人级（所有项目可用） | 项目级（当前项目可用） | 状态 |
 |---|---|---|---|
-| Claude Code | `~/.claude/skills/nature-vect/` | `.claude/skills/nature-vect/` | 官方支持 |
-| opencode | `~/.config/opencode/skills/nature-vect/` | `.opencode/skills/nature-vect/` | 官方支持 |
-| Cursor | `.cursor/skills/nature-vect/` | 项目根放 `.cursor/skills/` | 采用 Agent Skills |
 | Codex / ChatGPT | 见 OpenAI Codex 官方 skills 文档 | — | 采用 Agent Skills |
-| Trae | 按 Trae 官方文档导入 Skill | — | 采用 Agent Skills |
-| 豆包 | 按豆包官方技能导入方式 | — | 未逐版本核实* |
+| 豆包 | 按豆包官方技能导入方式 | — | 采用 Agent Skills |
 | workbuddy | 按其官方文档 | — | 未逐版本核实* |
 
 \* 标注“未逐版本核实”的 agent：本仓库按 Agent Skills 标准封装，若该产品不支持标准导入，最稳妥的兜底是把仓库放进任意项目目录，再用其“添加目录 / 加载文件”能力（如 opencode/Claude Code 的 `--add-dir`、`/add-dir`）指向该目录，并让 agent 读取 `SKILL.md`。以你所用产品的最新官方文档为准。
@@ -41,7 +37,7 @@ Windows 用户若用 Git Bash：`mkdir -p ~/.claude/skills` 后把仓库 `nature
 
 ### 2. 配置 API key（需先购买）
 
-key 是独立商业授权，请通过卖家渠道获取（**购买方式见下方[获取 key]占位说明**）。
+key 是独立商业授权，请通过卖家渠道获取（**购买方式见下方[获取 key]**）。
 
 打开你安装好本 skill 的 agent，对它说：
 
@@ -114,9 +110,9 @@ nature-vect/
 
 ## 如何获取 key
 
-处于刚发布阶段，每人可领取5次，免费测试额度
+**处于刚发布阶段，每人可领取   免费测试额度**
 > <div align="center">
-  <img src="assets/KEY huoqu.png" width="200">
+  <img src="nature-vect-main/assets/KEY huoqu.png" width="200">
 </div>
 
 
