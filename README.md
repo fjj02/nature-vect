@@ -17,7 +17,7 @@
 - 若你使用的 agent 具备 computer-use：可控制本机 Illustrator 完成绘制 / 验证（见 `references/direct-adobe.md` 与 `references/illustrator-computer-use.md`）
 
 范围说明：
-- 基础模式产物中，原图文字按矢量路径保留（外观 100% 保真，但当图形处理）。
+- 基础模式产物中，原图文字按矢量路径保留（外观 80% 保真，但当图形处理）。
 - 文字模式产物中，文字是真正的文本对象（.ai / SVG 打开可编辑改字）；复杂排版（多行行距、艺术字变形等）以 AI 内微调收尾。
 
 ## 快速开始
