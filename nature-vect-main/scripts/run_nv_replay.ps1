@@ -1,16 +1,19 @@
 ﻿# run_nv_replay.ps1 —— nature-vect cached 绘制引擎编排器（Windows + Illustrator COM）
 # 移植自本地 cell-lct 的 run_cell_lct.ps1（同作者），已改命名空间与脚本引用。
 # 职责：①调 prep-replay-cache.py 一次性解析 Master SVG 出缓存
-#       ②断言 Illustrator 已打开（绝不自行启动/关窗）
-#       ③单 COM 连接按批次调用 illustrator-replay-runtime.jsx（draw）逐批原生画图
-#       ④周期存 .ai 检查点 + playback.json 断点续跑 + 最后 QA + 一次 PNG 导出。
-# 前提：Windows、python3(+fontTools)、Illustrator 2019+ 已打开目标文档、
-#       agent 有本机 GUI 控制能力。
+#       ②（可选 -AutoCanvasFromSvg）读 viewBox 自动新建与图等大的 RGB 画板（1px=1pt）
+#       ③（可选 -AllowLaunch）Illustrator 未运行时允许经 COM 自启
+#       ④单 COM 连接按批次调用 illustrator-replay-runtime.jsx（draw）逐批原生画图
+#       ⑤周期存 .ai 检查点 + playback.json 断点续跑 + 最后 QA + 一次 PNG 导出。
+# 前提：Windows、python3(+fontTools)、Illustrator 2019+（-AutoCanvasFromSvg 时可自启）、
+#       agent 有本机 GUI/COM 控制能力。
 param(
     [Parameter(Mandatory = $true)]
     [string]$InputSvg,
     [Parameter(Mandatory = $true)]
     [string]$WorkDir,
+    [switch]$AutoCanvasFromSvg,
+    [switch]$AllowLaunch,
     [string]$OutputAi,
     [string]$OutputPng,
     [ValidateRange(1, 50)]
@@ -116,8 +119,29 @@ function Assert-IllustratorAlreadyOpen {
         $_.MainWindowHandle -ne 0 -and ($_.ProcessName -match 'Illustrator' -or $_.MainWindowTitle -match 'Illustrator')
     } | Select-Object -First 1
     if ($null -eq $visible) {
-        throw 'AI_NOT_RUNNING|Open Illustrator and the target document yourself; this Skill never starts or controls the Illustrator window.'
+        throw 'AI_NOT_RUNNING|Illustrator is not open. Re-run with -AllowLaunch (agent auto-launches it) or open Illustrator yourself.'
     }
+}
+
+# AutoCanvasFromSvg: create a brand-new RGB document sized 1:1 to the master
+# SVG viewBox (1 px = 1 pt) and return its document name as the draw target.
+# Must be called after COM is connected; allowed to start AI via COM only when
+# -AllowLaunch is set (otherwise Assert-IllustratorAlreadyOpen already ran).
+function New-EqualCanvasDocument([object]$illustrator, [object]$viewBox) {
+    $width = [double]$viewBox[2]
+    $height = [double]$viewBox[3]
+    if ($width -le 0 -or $height -le 0) {
+        throw "AutoCanvasFromSvg: cannot use viewBox dimensions from cache (got $width x $height)."
+    }
+    if ($width -gt 16348 -or $height -gt 16348) {
+        throw "AutoCanvasFromSvg: viewBox is larger than Illustrator's 16348pt document limit ($width x $height)."
+    }
+    $script = "(function(){ var w = $width, h = $height; var d = app.documents.add(DocumentColorSpace.RGB, w, h); return 'OK|' + d.name; }());"
+    $result = [string]$illustrator.DoJavaScript($script)
+    if (-not $result.StartsWith('OK|')) {
+        throw "AutoCanvasFromSvg: new document creation failed: $result"
+    }
+    return $result.Substring(3)
 }
 
 function ConvertTo-JsJson([object]$value) {
@@ -306,21 +330,35 @@ function Assert-CompleteArtwork([object]$illustrator, [string]$documentName) {
     }
 }
 
-Assert-IllustratorAlreadyOpen
+# -AutoCanvasFromSvg：脚本自动建板（等价"等大画布"）；默认（无该开关）要求 AI 已开并画入活动文档。
+# -AllowLaunch：仅与 -AutoCanvasFromSvg 搭配时允许经 COM 自启 AI（需用户已同意 agent 自动开 AI）。
+if ($AutoCanvasFromSvg) {
+    if (-not $AllowLaunch) { Assert-IllustratorAlreadyOpen }
+} else {
+    Assert-IllustratorAlreadyOpen
+}
 $illustrator = $null
 $batchPayloadPath = Join-Path $workPath 'current-batch.json'
 try {
-    # The process check prevents COM from being used as an Illustrator launcher.
-    # Keep this one COM proxy for the complete drawing session.
+    # 仅当 -AllowLaunch 时，COM 的 New-Object 才会被当作 Illustrator 启动器使用。
+    # 保持这个 COM 代理贯穿整个绘制会话。
     $illustrator = New-Object -ComObject 'Illustrator.Application.CC.2019'
     if ([version]$illustrator.Version -lt [version]'23.0') {
         throw "Illustrator 2019 or newer is required; connected version is $($illustrator.Version)."
     }
-    if ($illustrator.Documents.Count -lt 1) {
-        throw 'AI_DOCUMENT_REQUIRED|Open the target Illustrator document yourself before drawing.'
-    }
 
-    $targetDocumentName = [string]$illustrator.ActiveDocument.Name
+    if ($AutoCanvasFromSvg) {
+        # 新建与 Master SVG viewBox 等大的 RGB 文档（1px=1pt），画在其上 → 内容 1:1 落位。
+        $targetDocumentName = New-EqualCanvasDocument $illustrator @($cache.view_box)
+        # 等大画板下内容应 1:1 铺满画板，禁用默认的 0.72/0.78 收缩占幅。
+        $MaxWidthFraction = 1.0
+        $MaxHeightFraction = 1.0
+    } else {
+        if ($illustrator.Documents.Count -lt 1) {
+            throw 'AI_DOCUMENT_REQUIRED|Open the target Illustrator document yourself before drawing.'
+        }
+        $targetDocumentName = [string]$illustrator.ActiveDocument.Name
+    }
     $existingGroups = @(Get-ExistingBatchGroups $illustrator $targetDocumentName)
     $lastCheckpoint = [DateTime]::UtcNow
     $hasCheckpoint = Test-Path -LiteralPath $OutputAi
@@ -407,7 +445,8 @@ try {
         throw 'QA_FAILED|The expected AI or final PNG file is missing.'
     }
     $mode = if ($continued) { 'continued' } else { 'fresh' }
-    Write-Output "NATURE_VECT_REPLAY_COMPLETE|cache=$cachePath|ai=$OutputAi|png=$OutputPng|batches=$completedCount/$($state.batches.Count)|mode=$mode|illustrator_window_untouched=true"
+    $canvas = if ($AutoCanvasFromSvg) { "canvas_from_svg=$($cache.view_box[2])x$($cache.view_box[3])" } else { 'used_active_document' }
+    Write-Output "NATURE_VECT_REPLAY_COMPLETE|cache=$cachePath|ai=$OutputAi|png=$OutputPng|batches=$completedCount/$($state.batches.Count)|mode=$mode|$canvas|auto_canvas=$AutoCanvasFromSvg"
 } finally {
     if (Test-Path -LiteralPath $batchPayloadPath) {
         Remove-Item -LiteralPath $batchPayloadPath -Force -ErrorAction SilentlyContinue

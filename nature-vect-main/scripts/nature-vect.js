@@ -776,7 +776,7 @@ function cmdTextInject(svgFile, manifestFile, opts) {
   }
   log(JSON.stringify({ ok: true, svgPath: path.resolve(outPath), bytes: Buffer.byteLength(outSvg, 'utf8'), textBlocks: textCount, fit: opts.fit || 'stretch', shift: global.shiftX || global.shiftY ? { dx: global.shiftX, dy: global.shiftY } : null, size, zoom }));
   log(`完成：已注入 ${textCount} 块可编辑文字到 ${path.resolve(outPath)}`);
-  log('提示：可在 Illustrator 中打开该 SVG 验证文字已是文本对象；如需 .ai 原生文件，见 references/text-workflow.md 第 7 步。');
+  log('提示：可在 Illustrator 中打开该 SVG 验证文字已是文本对象；交付 .ai 请按 SKILL.md 基础模式第 8 步 / 文字模式第 8 步（agent 自动重绘交付 .ai）。');
 }
 
 // ---------- main ----------

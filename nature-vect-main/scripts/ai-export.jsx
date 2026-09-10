@@ -1,6 +1,8 @@
-﻿// ai-export.jsx —— nature-vect：把注入可编辑文字的 SVG 在 Adobe Illustrator 中另存为 .ai
+﻿// ai-export.jsx —— nature-vect：把 SVG 在 Adobe Illustrator 中另存为 .ai
 // -----------------------------------------------------------------------------
-// 用途：文字模式第 7 步（可选但推荐）的自动化工具。本脚本由 agent 在装有
+// 用途：文字模式第 8 步的兜底工具（v2.0 起主路已由 run_nv_replay/direct + 
+//       -AutoCanvasFromSvg 自动重绘交付 .ai；本脚本用于 agent 无法自动绘制、
+//       用户知情同意降级时的"代存"）。本脚本由 agent 在装有
 //       Adobe Illustrator 2019–2026 的目标机上执行，负责把 convert + text-inject
 //       产出的 SVG 打开并另存为 .ai 原生文件。SVG 内的 <text> 在 .ai 中仍是
 //       可编辑文本对象，双击即可改字。

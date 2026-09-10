@@ -1,24 +1,25 @@
 # nature-vect
 
-把位图（PNG / JPG / WebP…）转成**可在 Adobe Illustrator 2019–2026 中打开并编辑**的 SVG 矢量图。以 Agent Skill 形式分发，兼容豆包 / Codex / opencode / Trae / Claude Code / Cursor / workbuddy 等多款 AI agent（基于 Agent Skills 开放标准，SKILL.md）。
+把位图（PNG / JPG / WebP…）转成**可在 Adobe Illustrator 2019–2026 中编辑**的矢量，默认交付 Illustrator 原生 `.ai`。以 Agent Skill 形式分发，兼容豆包 / Codex / opencode / Trae / Claude Code / Cursor / workbuddy 等多款 AI agent（基于 Agent Skills 开放标准，SKILL.md）。
 
-支持两种模式：
-- **基础模式**：位图 → 可编辑矢量 SVG（图中文字作为字形路径保留外观，不能直接改字）。
-- **文字模式**：位图里的文字可变成 Illustrator 里的**可编辑文本对象**——先由 agent 清掉位图文字再转矢量，随后把文字以可编辑 `<text>` 注入 SVG 成 Master，再请用户打开 Adobe Illustrator，由 agent 在打开的文档中**绘制**（图形原生画入画板、文字建成可双击改字的文本框），最后交付 `.ai` + `.png`。
+支持两种模式（默认都以 Illustrator 原生 `.ai` 交付，agent 自动开 AI 重绘；仅本机确实无 Illustrator 时经用户知情同意降级 `.svg`）：
+- **基础模式**：位图 → agent 自动开 Illustrator 重绘交付 `.ai`（可编辑矢量；图中文字作为字形路径保留外观，不能直接改字）。用户点名“只要 SVG”（刻字机/激光等）则直接交付 `.svg`。
+- **文字模式**：位图里的文字可变成 Illustrator 里的**可编辑文本对象**——先由 agent 清掉位图文字再转矢量，随后把文字以可编辑 `<text>` 注入 SVG 成 Master，再由 agent **自动打开 Adobe Illustrator、新建与图等大的画板**并把图形与文字绘制为原生对象（文字建成可双击改字的文本框），最后交付 `.ai` + `.png`。全程无需用户手动打开 AI。
 
 > nature-vect 是独立于 BioSketch 的矢量转换能力包。本仓库 **不包含任何服务方 API key**，key 由用户自行购买与配置。文字模式的“去字”由 agent 自带视觉与图像能力完成，**同样不引入额外 key**。
 
 ## 它做什么
 
-- 图片 → 可编辑矢量 SVG（默认开启 Adobe 兼容模式）
+- 图片 → 可编辑矢量，默认交付 Illustrator 原生 `.ai`（agent 自动开 AI 重绘；基础模式与文字模式同）
 - 查询剩余额度：对 agent 说“还有多少额度 / 剩余次数”即可（`credit` 子命令），或命令行 `node scripts/nature-vect.js credit`
 - 支持预设与高级参数（描边 / 分组 / 叠放…）
-- **文字模式**：agent 视觉识别文字 → 校对 → 清字 → 转矢量 → 注入可编辑 `<text>`（Master SVG）→ **在 Illustrator 中绘制**（双引擎：cached 逐批画 / direct AI 自导入），文字为可编辑文本框，全程 agent 自动完成
-- 若你使用的 agent 具备 computer-use：可控制本机 Illustrator 完成绘制 / 验证（见 `references/direct-adobe.md` 与 `references/illustrator-computer-use.md`）
+- **基础模式**：convert → validate → agent 自动开 Illustrator、新建与图等大画板并重绘交付 `.ai`（文字为字形路径）；用户点名只要 SVG 则交付 `.svg`
+- **文字模式**：agent 视觉识别文字 → 校对 → 清字 → 转矢量 → 注入可编辑 `<text>`（Master SVG）→ **自动打开 Illustrator 并新建与图等大画板后绘制**（双引擎：cached 逐批画 / direct AI 自导入），文字为可编辑文本框，全程 agent 自动完成，无需用户手动打开 AI
+- 若你使用的 agent 具备本机 GUI / computer-use / COM 控制：两种模式都可全自动交付 `.ai`（见 `references/direct-adobe.md` 与 `references/illustrator-computer-use.md`）
 
 范围说明：
-- 基础模式产物中，原图文字按矢量路径保留（外观 100% 保真，但当图形处理）。
-- 文字模式产物中，文字是真正的文本对象（.ai / SVG 打开可编辑改字）；复杂排版（多行行距、艺术字变形等）以 AI 内微调收尾。
+- 基础模式产物中，原图文字按字形路径保留（外观 100% 保真，但当图形处理、不能改字）；如需改字请走文字模式。
+- 文字模式产物中，文字是真正的可编辑文本对象（.ai 打开双击可改字）；复杂排版（多行行距、艺术字变形等）以 AI 内微调收尾。
 
 ## 快速开始
 
@@ -61,23 +62,29 @@ node scripts/nature-vect.js check
 
 在 agent 里一句话即可：
 
-> 把 `xxx.png` 用 nature-vect 转成矢量，存到 `E:\out\xxx.svg`
+> 把 `xxx.png` 用 nature-vect 转成矢量，存到 `E:\out\xxx`
 
-首次会话 agent 会先与你**确认保存路径**，之后在对话里告诉你产物位置。
+首次会话 agent 会先与你**确认保存路径**，之后在对话里告诉你产物位置。默认交付 Illustrator 原生 `.ai`（agent 自动开 Illustrator 重绘，需本机已装 AI）。
 
-需要**文字可编辑 / .ai 文件**时，告诉 agent：
+**只要 SVG**（例如刻字机 / 激光 / 其它软件用）时，明确告诉 agent：
+
+> 只要 SVG，不要 .ai
+
+**需要文字可编辑**时，告诉 agent：
 
 > 把 `xxx.png` 转矢量，图里的文字要能在 Illustrator 里改，最后给我 .ai
 
-agent 会进入文字模式（先通读 `references/text-workflow.md` 与 `references/direct-adobe.md`），按“识别文字→与你校对→清字→转矢量→注入可编辑文字→请你打开 Illustrator 后在软件中绘制”自动执行：请在 Adobe Illustrator 中新建与图片等大的画板并告知，agent 会把图形+文字绘制为原生对象并交付 `.ai` + `.png`；无法在本机绘制时如实说明并交付 `.text.svg` 由你在 AI 里另存。
+agent 会进入文字模式（先通读 `references/text-workflow.md` 与 `references/direct-adobe.md`），按“识别文字→与你校对→清字→转矢量→注入可编辑文字→自动打开 Illustrator 并新建与图等大的画板后绘制”自动执行：agent 会把图形+文字绘制为原生对象并交付 `.ai` + `.png`；仅当环境确实无法在本机绘制且你知情同意时，才降级交付 `.text.svg` 由你在 AI 里另存。**绘制环节不要求你手动打开 AI，也不要求你在场等待。**
 
 命令行直接跑：
 
 ```bash
-node scripts/nature-vect.js convert 输入.png -o 输出.svg            # 基础模式（默认 Adobe 兼容）
+node scripts/nature-vect.js convert 输入.png -o 输出.svg            # 转换出 Adobe 兼容 SVG（基础/文字模式共用中间产物）
 node scripts/nature-vect.js text-inject base.svg manifest.json -o master.svg   # 文字模式：注入可编辑文字生成 Master
 node scripts/nature-vect.js validate out.svg                        # 结构自检
 node scripts/nature-vect.js credit                                  # 查询剩余额度
+# 交付 .ai：在装有 Illustrator 的本机跑（cached 引擎，自动建等大画板）：
+powershell -File scripts/run_nv_replay.ps1 -InputSvg 输出.svg -WorkDir .\playback -AutoCanvasFromSvg -AllowLaunch -OutputAi 输出.ai -OutputPng 输出.png
 node scripts/nature-vect.js -h                                       # 全部参数
 ```
 

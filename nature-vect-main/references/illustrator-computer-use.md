@@ -3,6 +3,13 @@
 本文供**具备 GUI / computer-use 能力**的 agent 使用：把 nature-vect 生成的 SVG 在本机 Adobe Illustrator 中打开并展示给用户。中英双语菜单与快捷键均已给出，兼容 Illustrator 2019–2026。
 
 > 铁律：**只打开，不重画**。SVG 本身就是矢量文件，用 Illustrator “打开”即得到可编辑矢量对象。绝不要试图用画笔/钢笔工具照着图重新画一遍——慢、失真、且违背本 skill 的目的。
+>
+> 说明：**文字模式（要改字/交付 .ai）不走本文的"手动打开"**——由 `run_nv_replay.ps1` / `run_nv_direct.ps1` 带 `-AutoCanvasFromSvg` 自动启动 AI、新建与图等大的画板并绘制（见 `direct-adobe.md`）。本文主要服务：基础模式"打开看看"、把 `.text.svg` 兜底文件手动打开另存、或电脑上人工补位/复核。
+
+## 文字模式自动建板（优先，取代手动新建画板）
+
+- 文字模式交付 `.ai` 时**不要**用本文的手动「新建画板」流程——用绘制脚本的 `-AutoCanvasFromSvg`：脚本读 Master SVG 的 viewBox → 自动新建宽高=viewBox（1px=1pt）的 RGB 画板并绘制，全程无需用户在 AI 里新建文档（Illustrator 未运行则由脚本 COM 自启，需用户已同意 agent 自动开 AI）。
+- 手动「文件→新建→输入宽高」仅作为：脚本自启被安全策略拦截、或用户主动要求手动建板时的兜底。
 
 ## 前提检查（不满足就跳过并降级）
 

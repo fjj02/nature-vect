@@ -1,21 +1,21 @@
 ---
 name: nature-vect
-description: 把位图（PNG/JPG/WebP 等）转成可在 Adobe Illustrator 2019–2026 中打开的可编辑 SVG 矢量；当用户要求图中文字也可编辑时进入文字模式：先清掉位图文字再转矢量，把可编辑 <text> 注入 SVG，再请用户打开 Adobe Illustrator，由 agent 在打开的文档中绘制成可编辑文本对象并交付 .ai（无法在本机 Illustrator 中绘制时，交付可编辑 SVG 由用户另存 .ai）。当用户说“把这张图转矢量”“图片转 SVG/矢量图”“导出 Illustrator 能用的图”“文字要可编辑”“查询额度/还有多少额度/剩余次数”“nature-vect”等时使用。首次使用需要用户提供一把 API key（向卖家购买），由 agent 调用本 skill 的 init 命令写入用户级配置。
+description: 把位图（PNG/JPG/WebP 等）转成 Adobe Illustrator 原生 .ai/.svg：基础模式=可编辑矢量（文字按字形路径保留，不能改字）；文字模式=可编辑文本对象（文字可双击改字）。默认由 agent 自动打开本机 Adobe Illustrator、新建与图等大的画板，把图形/文字绘制为原生对象并交付 .ai；仅当环境确实无法在本机绘制且用户知情同意时才降级交付 .svg。当用户说“把这张图转矢量”“图片转 SVG/矢量图”“导出 Illustrator 能用的图”“文字要可编辑”“查询额度/还有多少额度/剩余次数”“nature-vect”等时使用。首次使用需要用户提供一把 API key（向卖家购买），由 agent 调用本 skill 的 init 命令写入用户级配置。
 license: MIT
 metadata:
-  output: 基础模式=可编辑矢量 SVG（文字按字形路径保留）；文字模式=可编辑文本对象（agent 在 Adobe Illustrator 中绘制交付 .ai，双击可改字）；无法在本机绘制时兜底=带可编辑 <text> 的 .text.svg 由用户另存 .ai
+  output: 基础模式=agent 自动开 Illustrator 重绘交付 .ai（可编辑矢量，文字按字形路径保留）+ .png；文字模式=同左，但文字为 live 文本可双击改字；仅本机确实无法绘制且用户知情同意时降级交付 .svg；用户显式只要 SVG 时按用户指定交付 .svg 不算降级
 ---
 
-# nature-vect —— 图片转可编辑 SVG 矢量
+# nature-vect —— 图片转可编辑 AI / SVG 矢量
 
-把位图转换成可在 Adobe Illustrator 中编辑的矢量 SVG。转换由本 skill 自带的 Node.js 脚本完成，默认开启 Adobe 兼容模式（Illustrator 2019–2026）。
+把位图转换成可在 Adobe Illustrator 中编辑的矢量。转换由本 skill 自带的 Node.js 脚本完成（产出 Adobe 兼容 SVG），再由 agent 自动开本机 Illustrator 把它重绘为原生 `.ai` 交付（Illustrator 2019–2026）。
 
-**两种模式，先判断再走流程：**
+**两种模式，先判断再走流程：** 两种模式默认都以 `.ai` 交付（agent 自动开 Illustrator 重绘为原生对象）；区别只在文字能否改字。
 
 | 模式 | 适用情况 | 最终文字形态 | 流程 |
 |---|---|---|---|
-| 基础模式 | 原图无文字，或用户只要纯矢量 | 字形路径（当图形处理，不能改字） | convert → validate |
-| 文字模式 | 用户要图中文字**可编辑、能改字** | 可编辑文本框，在 Illustrator 中绘制后可双击改字 | 识别校对 → 去字 → convert → text-inject(master) → 请用户打开 Illustrator，由 agent 在其中绘制(见 direct-adobe.md) → 交付 .ai；无法在本机绘制则停下交付 .text.svg |
+| 基础模式 | 原图无文字，或用户只要纯矢量 | 字形路径（当图形处理，不能改字） | convert → validate → agent 自动开 AI 重绘交付 .ai；无 AI 且用户知情同意才降级 .svg；用户点名只要 SVG 按用户指定 |
+| 文字模式 | 用户要图中文字**可编辑、能改字** | 可编辑文本框，agent 自动开 Illustrator 绘制后可双击改字 | 前置声明自检 → 识别校对 → 去字 → convert → text-inject(master) → agent 自动开 AI 并新建等大画板、在其中绘制(见 direct-adobe.md) → 交付 .ai；仅环境无法绘制且用户知情同意才降级交付 .text.svg |
 
 ## 何时使用本 skill
 
@@ -31,6 +31,7 @@ metadata:
 
 - 能执行 Node.js（>= 18）。多数 agent（opencode / Claude Code / Codex / Trae 等）可执行 `node`。
 - 首次使用必须先配置 API key（见下）。key 通过脚本写入用户级配置，**不进入任何项目或仓库文件**。
+- **两种模式共用绘制前提（交付 .ai 必须）**：本机 **Windows** + 已装 **Illustrator 2019+**，且你能控制本机（GUI / COM）。最终交付是 **agent 自动打开 Illustrator 并绘制出的 .ai**；缺此前提时**开工前**就要停下并如实告知（见各模式第 0 步），不要做完再降级。
 - **文字模式额外前提**：你自己具备 ①视觉看图（识别文字内容与位置）②把图中文字区域清掉的能力（局部图像编辑/清除）。缺任一能力请勿硬跑文字模式（见降级说明）。
 
 # 查询剩余额度（辅助）
@@ -49,10 +50,21 @@ node <skill目录>/scripts/nature-vect.js credit
 
 1. 用户给了一张位图要求转矢量。先看原图是否含文字、用户是否提到“文字可编辑/能改字/字要能改”。
 2. **含文字且要可编辑** → 文字模式（跳到下文「主流程——文字模式」）。
-3. 否则 → 基础模式（下文「主流程——基础模式」），一把过，最快最稳。
-4. 用户没给图、只问额度 → 走上方「查询剩余额度（辅助）」。
+3. **用户点名要 SVG**（“转成/输出/存成 .svg”“要 .svg 文件 / 只要 SVG / 不用 .ai”“刻字机、激光等只认 SVG”）→ 仍走基础模式，但按用户指定**只交付 .svg**（走下方基础模式即可，跳过第 8 步绘制，不算降级）。
+4. 否则 → 基础模式（下文「主流程——基础模式」）：默认 convert → validate → agent 自动开 AI 重绘交付 `.ai`。
+5. 用户没给图、只问额度 → 走上方「查询剩余额度（辅助）」。
 
 # 主流程——基础模式
+
+### 第 0 步：确认交付形态与自检（开工前必做）
+
+- 若用户**点名要 SVG**（如“转成/输出/存成 .svg”“要 SVG 文件”“只要 SVG / 不用 .ai”“用于刻字机、激光等只认 SVG 的软件”）：
+  直接以 **.svg 为最终交付**，不需要 AI，跳过本步的 AI 自检，也跳过下文第 8 步绘制，第 1–7 步后即交付 .svg。
+- 否则基础模式默认交付 **`.ai`**（agent 自动开 Illustrator 把 SVG 重绘为原生矢量对象，文字为字形路径），开工前自检：
+  - [ ] 本机是 **Windows**
+  - [ ] 已装 **Illustrator 2019+**
+  - [ ] agent 具备本机 **GUI / COM 控制**能力
+  自检不通过 → **在动手 convert 之前就停下**，如实告诉用户「此环境无法把矢量重绘成 .ai」，并给出选择：a) 改交付 .svg（Adobe 兼容、AI 可直接打开，但非原生 .ai）；b) 用户换具备 Windows+AI+本机控制的 agent / 机器重跑。**红线：不得先转完再降级；不得假装已交付 .ai。**
 
 ### 第 1 步：确认 key 已配置
 
@@ -96,7 +108,7 @@ node <skill目录>/scripts/nature-vect.js credit
 
 ### 第 4 步：确认输出路径（强制）
 
-每次会话**第一次**产生 SVG 前，必须先向用户确认「保存到哪个路径、叫什么文件名」，得到明确回答后再写文件。不要在未确认的情况下自作主张把 SVG 写到临时或猜测目录。
+每次会话**第一次**产出文件前，必须先向用户确认「保存到哪个目录、用什么文件名」，得到明确回答后再写文件。`.svg`（中间/点名交付）与 `.ai/.png`（默认交付）用同一路径与主文件名（如 `out.svg` → `out.ai`/`out.png`）。不要在未确认的情况下自作主张写到临时或猜测目录。
 
 ### 第 5 步：执行转换
 
@@ -114,7 +126,26 @@ node <skill目录>/scripts/nature-vect.js validate <输出.svg>
 
 校验不通过时，把报错告诉用户，必要时重试转换或调整参数。
 
-### 第 7 步（可选）：用 computer-use 打开展示 / 验证
+### 第 7 步：把 SVG 交付给用户（用户点名“只要 SVG”时到此处即完成）
+
+若第 0 步判定本单只要 SVG：到这里把 `.svg` 路径交付给用户（Adobe 兼容，AI 2019–2026 可直接打开编辑），并说明“文字是字形路径、当图形处理”。**这是用户指定的正常交付，不是降级。**
+
+### 第 8 步：agent 自动重绘并交付 .ai（默认主路，必须完成）
+
+`.svg`（Adobe 兼容矢量，文字为字形路径）生成后，默认**必须**由 agent 自动重绘为 Illustrator 原生 `.ai`：
+
+1. **自动开 Illustrator + 新建与 SVG 等大的画板**：用 `run_nv_replay.ps1 -AutoCanvasFromSvg`（AI 未运行且已获用户同意则加 `-AllowLaunch`），画板宽高 = SVG viewBox（1px=1pt），内容 1:1 落位。命令与引擎说明见 `<skill目录>/references/direct-adobe.md` §2——**默认 cached**（图越大越必须 cached），仅 cached 被 prep 拒收且图是小图元时才改 direct；海量/超长 path 绝不可走 direct。
+2. 画入后 **agent 在画板内目视核对**图形完整性（矢量对象可选中、无缺失），脚本已存 `out.ai` 并导出一次 `out.png`。
+3. **完成闸口（全过才可宣布完成）**：
+   - [ ] `out.ai` 在磁盘**真实存在**且是本次重绘新生成（看时间/大小，非旧文件）；
+   - [ ] `out.png` 已导出；
+   - [ ] 画板内矢量对象可点选、无丢块。
+   任一项不满足 → 不宣布完成：修正（重跑/重导出）或如实说明未完成。
+4. 通过后交付 `out.ai` + `out.png`，说明“Illustrator 原生 .ai，可编辑；图中文字为字形路径，若需改字请走文字模式”。
+
+**降级（仅本机确实无法绘制 + 用户知情同意）**：第 0 步自检不过却仍被要求交付 .ai 时——停下说明原因，经用户知情同意后才交付 `.svg`（Adobe 兼容），并明确“未重绘成原生 .ai”。**严禁假装已完成绘制。**
+
+### 第 9 步（可选）：用 computer-use 打开展示 / 验证
 
 只有你具备 GUI / computer-use 能力且用户要求“打开看看”时执行；否则直接把产物路径告诉用户即可。
 
@@ -122,7 +153,24 @@ node <skill目录>/scripts/nature-vect.js validate <输出.svg>
 
 # 主流程——文字模式
 
-**先通读 `<skill目录>/references/text-workflow.md`**（含 manifest 字段、去字红线、注入与导出细节），再按下面骨架执行。需要**停下与用户交互**的节点：文字清单校对、去字结果、请用户打开 Illustrator（第 8 步）。
+**先通读 `<skill目录>/references/text-workflow.md`**（含 manifest 字段、去字红线、注入与导出细节），再按下面骨架执行。需要**停下与用户交互**的节点：前置声明（第 0 步，仅在无法绘制时）、文字清单校对、去字结果、降级前知情同意。**绘制环节不依赖用户在场**：agent 自动打开 Illustrator 并新建画板，无需用户手动打开。
+
+### 第 0 步：前置声明与能力自检（开工前必做，不满足立即停下）
+
+文字模式交付物**写死为 Illustrator 原生 `.ai`**（在 AI 中绘制，文字可双击改字），**不需要询问用户交付形式**。开工（识别/去字/转矢量/注入）之前先做两件事：
+
+1. **向用户声明**：本模式将自动打开本机 Adobe Illustrator、新建与图等大的画板，把图形与文字绘制为原生对象并交付 `.ai` + `.png`。用户无需手动打开 AI。
+2. **agent 自检绘制前提是否成立**：
+   - [ ] 本机是 **Windows**
+   - [ ] 已装 **Illustrator 2019+**
+   - [ ] agent 具备本机 **GUI / COM 控制**能力（脚本 `run_nv_*.ps1` 走 Illustrator COM）
+   - [ ] cached 引擎还需 **python3 + fontTools**（direct 引擎无需；图大必走 cached）
+
+自检不通过（例如不是 Windows / 未装 AI / 无法控制本机 AI）：**在动手识别、去字、转换之前就停下**，如实告诉用户「此环境无法完成 Illustrator 绘制、交付不了 .ai」，并给出选择：
+- 改走**基础模式**（文字为字形路径不能改字；本机无 AI 时降级交付 Adobe 兼容 .svg，用户知情同意；本机有 AI 时按基础模式第 8 步交付 .ai）；
+- 用户换用**具备 Windows + Illustrator + 本机控制的 agent / 机器**重跑文字模式。
+
+**红线：不得先跑完识别→去字→转换→注入整套流程、最后一步才暴露做不了；也不得以“用户没应答”为由中途把 SVG 当正常交付。** 第 0 步没通过就不进入后续步骤。
 
 ### 第 1 步：确认 key（同基础模式第 1 步）
 
@@ -168,20 +216,29 @@ node <skill目录>/scripts/nature-vect.js validate out.svg
 
 结果应显示 `"textNodes": N`（N≥1）。
 
-### 第 8 步：请用户打开 Adobe Illustrator，由 agent 在其中绘制并交付（必须完成）
+### 第 8 步：agent 自动打开 Illustrator、新建等大画板并绘制，交付 .ai（必须完成）
 
-`out.svg`（Master SVG = 矢量 + 可编辑 `<text>`）生成后，**必须**在 Adobe Illustrator 中完成绘制并交付 `.ai`，不得以“只交付 SVG”代替。
+`out.svg`（Master SVG = 矢量 + 可编辑 `<text>`）生成后，**必须**由 agent 在 Adobe Illustrator 中完成绘制并交付 `.ai`。此环节**无需用户打开 AI**，全程 agent 自动完成：
 
-1. **向用户提出打开请求（固定话术）**：
-   > 请打开 Adobe Illustrator，我将在其中为你绘制。请新建一个与图片等大的画板（或打开你要追加的 .ai 文档），打开后告诉我。
-   全程对用户**不得**出现“直播/重现/重绘/重播/直控”等内部说法；只按上述方式表达“由 agent 在 Illustrator 中绘制”。
-2. 用户已打开目标文档后，按 `<skill目录>/references/direct-adobe.md` 双引擎执行：**默认 cached**（`prep-replay-cache.py` + `run_nv_replay.ps1`），图越大越必须 cached；仅当 cached 被 prep 拒收（gradient/clip/use/CMYK 等）且图是**小图元**时才改 direct（`run_nv_direct.ps1`）。**铁律：海量/超长 path 的图绝不可走 direct（AI 整图导入会崩），只能 cached。**两者都把文字建成可编辑文本框。
-3. 画入后在画板内**目视微调文字对位**（直接拖动文字框/调字号即可），存为 `out.ai`（另导出一次 `out.png`），交付并提示“文字在 Illustrator 中双击即可改字”，附中间产物 clean.png/base.svg/manifest 位置。
-4. **无法完成绘制的边界**（本机不是 Windows / 未装 Illustrator / agent 无本机 GUI 控制能力 / 用户未打开或拒绝打开 AI）：**停下，如实说明原因**，交付 `out.svg`（含可编辑 `<text>`），请用户自己在 AI 里 `文件→打开` 并另存 `.ai`；用户同意时也可用 `<skill目录>/scripts/ai-export.jsx` 代存。**严禁假装已完成绘制、严禁虚构交付。**
+1. **自动打开 Illustrator 并新建与 SVG 等大的画板**：通过脚本（`-AutoCanvasFromSvg`）自动启动 Illustrator（未运行则 COM 自启），并新建一个宽高 = Master SVG viewBox 尺寸（1px = 1pt）的 RGB 文档作为活动画板。见 `<skill目录>/references/direct-adobe.md` §2 的等大画板命令。
+2. **绘制（双引擎选路）**：按 `<skill目录>/references/direct-adobe.md` 执行——**默认 cached**（`prep-replay-cache.py` + `run_nv_replay.ps1`），图越大越必须 cached；仅当 cached 被 prep 拒收（gradient/clip/use/CMYK 等）且图是**小图元**时才改 direct（`run_nv_direct.ps1`）。**铁律：海量/超长 path 的图绝不可走 direct（AI 整图导入会崩），只能 cached。**两者都把文字建成可编辑文本框，且绘制命令本身就在等大画板上执行，无需用户先开文档。
+3. **画入后在画板内目视微调文字对位**（直接拖动文字框/调字号即可），存为 `out.ai`（另导出一次 `out.png`）。
+4. **完成闸口（交付前强制核验，全部通过才可宣布完成）**：
+   - [ ] `out.ai` 在磁盘上**真实存在**且是本次绘制新生成（核对文件时间/大小，不是旧文件残留）；
+   - [ ] `out.png` 已导出一次；
+   - [ ] 用选择工具点选一处文字，确认是**文本对象**（属性显示为文字，可双击进入编辑）。
+   任一项不满足 → 不宣布完成：继续修正（重画 / 重新导出）或如实说明未完成原因。
+5. 全部通过后交付 `out.ai`，提示“文字在 Illustrator 中双击即可改字”，附中间产物 clean.png/base.svg/manifest 位置。
+
+全程对用户**不得**出现“直播/重现/重绘/重播/直控”等内部说法；只按“自动打开 Illustrator、绘制并交付 .ai”向用户表达。
+
+**降级兜底（仅环境根本做不到 + 用户知情同意）**：仅当本机确实无法绘制（非 Windows / 未装 Illustrator / 无法控制本机 AI）且已向用户说明原因、取得用户**知情同意**后，才交付 `out.svg`（含可编辑 `<text>`）请用户自己在 AI 里 `文件→打开` 并另存 `.ai`；用户同意时也可用 `<skill目录>/scripts/ai-export.jsx` 代存。**该兜底是失败降级，必须明确告知用户未在 Illustrator 中完成绘制，严禁假装已完成绘制、严禁把 SVG 当正常交付。**
 
 ## 降级路径（能力不足时）
 
-- 只有视觉、没有去字能力：交付「字形路径」基础模式产物，并如实说明文字不能改字。
+- **文字模式绘制做不了**（非 Windows / 未装 AI / 无本机 GUI 控制）：**第 0 步自检即停**，不给 SVG 当文字模式交付；除非用户知情同意后走「文字清单 + 无字底图」由脚本完成 convert + text-inject 出 `.text.svg`，让用户在别处另存 `.ai`。
+- **基础模式交付 .ai 做不了**（无 Windows/AI/本机控制）：**第 0 步自检即停**，改交付 Adobe 兼容 `.svg`（需用户知情同意），如实说明未重绘成原生 .ai；或用户换具备本机 Illustrator 控制的 agent / 机器。
+- 只有视觉、没有去字能力：文字模式降级为「字形路径」交付（等同基础模式 .ai，文字不能改字），并如实说明。
 - 完全没有视觉/GUI：连视觉识别都做不了 → 只走基础模式；用户需文字可编辑时，请其提供「无文字底图 + 文字清单」再由脚本完成 convert + text-inject。
 
 ## 错误处理（基础模式通用）
