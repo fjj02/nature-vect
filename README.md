@@ -111,11 +111,7 @@ nature-vect/
 
 ## 如何获取 key
 
-**处于刚发布阶段，每人加入skills交流群即可领取   免费测试额度**
-> <div align="center">
-  <img src="nature-vect-main/assets/KEY huoqu.png" width="200">
-</div>
-
+**处于刚发布阶段，每人加入skills交流群即可领取   免费测试额度，1额度=1张图**
 
 ## 免责声明
 
