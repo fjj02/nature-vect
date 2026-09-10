@@ -113,7 +113,7 @@ nature-vect/
 
 **处于刚发布阶段，每人加入skills交流群即可领取   免费测试额度，1额度=1张图**
 <div align="center">
-< img src="assets/3225ae274769d37942985546d666406.png" width="200">
+  <img src="assets/3225ae274769d37942985546d666406.png" width="200">
 </div>
 
 ## 免责声明
