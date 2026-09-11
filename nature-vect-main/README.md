@@ -6,7 +6,7 @@
 - **基础模式**：位图 → agent 自动开 Illustrator 重绘交付 `.ai`（可编辑矢量；图中文字作为字形路径保留外观，不能直接改字）。用户点名“只要 SVG”（刻字机/激光等）则直接交付 `.svg`。
 - **文字模式**：位图里的文字可变成 Illustrator 里的**可编辑文本对象**——先由 agent 清掉位图文字再转矢量，随后把文字以可编辑 `<text>` 注入 SVG 成 Master，再由 agent **自动打开 Adobe Illustrator、新建与图等大的画板**并把图形与文字绘制为原生对象（文字建成可双击改字的文本框），最后交付 `.ai` + `.png`。全程无需用户手动打开 AI。
 
-> nature-vect 是独立于 BioSketch 的矢量转换能力包。本仓库 **不包含任何服务方 API key**，key 由用户自行购买与配置。文字模式的“去字”由 agent 自带视觉与图像能力完成，**同样不引入额外 key**。
+> nature-vect 是独立于 BioSketch 的矢量转换能力包。本仓库 **不包含任何服务方 API key**，key 由用户自行购买与配置。文字模式的“去字”由 agent 自带的**生成式图像模型**做语义清除（禁止像素级覆盖；未清干净不得转矢量），**同样不引入额外 key**。
 
 ## 它做什么
 
@@ -90,7 +90,7 @@ node scripts/nature-vect.js -h                                       # 全部参
 
 `text-inject` 与文字模式完整用法（manifest 字段、去字红线、在 Illustrator 中绘制）见 [`references/text-workflow.md`](references/text-workflow.md) 与 [`references/direct-adobe.md`](references/direct-adobe.md)。
 
-> 文字模式的「识别 → 记录 → 去字」方法论已按 cell_su7 同源口径收紧（覆盖 panel 字母/图例/单位/符号等全部文字型内容、不确定即问、去字用推荐提示词并以原图为参照整体目视校验）。manifest 默认新版 `schema_version:"1.0"` / `text_elements`（`assets/manifest.sample.json` 为新格式示例），旧 `texts[]` 格式仍兼容，`text-inject` 自动识别。
+> 文字模式的「识别 → 记录 → 去字」方法论已收紧（识别覆盖 panel 字母/图例/单位/符号等全部文字型内容、不确定即问；**去字必须走生成式图像模型语义清除，禁止像素级覆盖**，并以原图为参照整体目视校验；**未清干净不得转矢量**）。manifest 默认新版 `schema_version:"1.0"` / `text_elements`（`assets/manifest.sample.json` 为新格式示例），旧 `texts[]` 格式仍兼容，`text-inject` 自动识别。
 
 ## 参数与预设
 
@@ -130,7 +130,7 @@ nature-vect/
 ## 免责声明
 
 - 本 skill 调用的是第三方矢量转换服务，该服务与 key 均非本仓库提供。请自行遵守服务商的使用条款；商业转售/分销行为的合规性由使用者自行负责。
-- 文字模式的“清字 / 识别”由运行本 skill 的 agent 自带能力完成，质量与可用性取决于该 agent 客户端，本仓库不保证任何特定客户端可用。
+- 文字模式的“清字 / 识别”由运行本 skill 的 agent 自带的生成式图像模型完成，质量与可用性取决于该 agent 客户端，本仓库不保证任何特定客户端可用。
 - “computer-use 自动打开 Illustrator / 导出 .ai”依赖你所用的 agent 产品具备 GUI 控制能力，本仓库只提供操作指引（脚本与手册），不保证任何特定客户端可用。
 - 示例图片 `assets/sample.*` 仅为演示用，发布前可替换为你自己的素材。
 

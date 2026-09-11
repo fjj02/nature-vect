@@ -175,4 +175,4 @@ agent 目视微调文字 → 完成闸口（out.ai 真实存在 + 文字可编�
 
 - cached/direct 绘制机制移植自本地 cell-lct（同作者），命名空间 `NATURE_VECT_REPLAY_*` 与 `NATURE_VECT_DIRECT_*`。
 - nature-vect 的 direct 引擎为 cell-lct direct 引擎的移植，并**增强支持 TextFrame**（cell-lct 原版 direct 只画图形、遇文字报错；nature-vect 要求带可编辑文字的 master 也能 direct 画为 live 文本）。
-- 依赖：Windows + Illustrator 2019+（COM）+（cached 路）python3/fontTools + agent 本机控制。**不引入第三方图片清理服务**；去字仍由客户端自带能力完成（豆包=自带像素级覆盖字）。
+- 依赖：Windows + Illustrator 2019+（COM）+（cached 路）python3/fontTools + agent 本机控制。**不引入第三方图片清理服务**；去字由 agent 自带的**生成式图像模型**做语义清除（禁止像素级覆盖；未清干净不得转矢量）。
