@@ -9,23 +9,28 @@ const path = require('path');
 const os = require('os');
 
 const VERSION = '1.4.0';
-const ENDPOINT = 'https://vectorizer-api.etoolbox.cn/v1/vectorize';
-const CREDIT_ENDPOINT = 'https://vectorizer-api.etoolbox.cn/v1/credit';
+const DEFAULT_BASE_URL = 'http://123.56.95.34';
+const BASE_URL_ENV = 'NATURE_VECT_BASE_URL';
+const ENDPOINT_PATH = '/v1/vectorize';
+const CREDIT_PATH = '/v1/credit';
 const CONFIG_DIR = path.join(os.homedir(), '.nature-vect');
 const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
 const DEFAULT_TIMEOUT_MS = 300000;
+const THANKS = '感谢 nature-vect 提供服务';
 
 const HELP = `nature-vect ${VERSION} —— 图片转 SVG 矢量（兼容 Adobe Illustrator 2019-2026）+ 可编辑文字注入
 
 用法:
-  node nature-vect.js init [KEY]            首次写入 API key（用户级配置，不入库）
+  node nature-vect.js init [KEY] [--base-url <URL>]   首次写入 API key / 服务地址（用户级配置，不入库）
   node nature-vect.js check                 校验 key 配置与网络连通性
   node nature-vect.js convert <图片> -o <svg> [选项]   转换图片为 SVG
   node nature-vect.js text-inject <svg> <manifest.json> [-o <out.svg>]   把文字清单注入为可编辑 <text>（自动识别旧 texts[] 或新 schema_version 1.0 / text_elements）
   node nature-vect.js validate <svg>        输出文件结构自检
-  node nature-vect.js credit                查询剩余额度（key 读配置/环境变量/--key）
+  node nature-vect.js credit [--base-url <URL>]       查询剩余额度（key 读配置/环境变量/--key）
 
 key 读取优先级: --key 参数 > 环境变量 NATURE_VECT_API_KEY > 配置文件(config.json)
+服务地址优先级: --base-url 参数 > 环境变量 NATURE_VECT_BASE_URL > 配置文件 baseUrl > 内置网关地址
+默认服务地址: http://123.56.95.34（本 skill 默认走网关；如需直连上游请显式覆盖）
 key 绝不回显、绝不写入任何项目/仓库文件。
 
 convert 选项:
@@ -39,6 +44,7 @@ convert 选项:
   --no-adobe-compat       关闭 Adobe 兼容模式（默认开启）
   --extra '<json>'        追加任意底层参数（与原默认值做浅合并）
   --key <KEY>             临时指定 key（仅本次运行，不落盘）
+  --base-url <URL>        临时指定服务地址（仅本次运行，默认走内置网关）
   --timeout <毫秒>         请求超时（默认 300000）
 
 预设说明（详细见 references/presets.md）:
@@ -99,20 +105,29 @@ function resolveKey(cliKey) {
   return cliKey || envKey || fileKey || '';
 }
 
+function resolveBaseUrl(cliBaseUrl) {
+  const envBase = process.env[BASE_URL_ENV];
+  const fileBase = (readConfig() || {}).baseUrl;
+  const value = cliBaseUrl || envBase || fileBase || DEFAULT_BASE_URL;
+  return String(value).trim().replace(/\/+$/, '');
+}
+
 function isPlaceholder(key) {
   const v = String(key || '').trim().toLowerCase();
   return !v || /^(your|xxx|replace|changeme|placeholder|demo)/.test(v);
 }
 
 // ---------- init ----------
-function cmdInit(key) {
+function cmdInit(key, baseUrl) {
   if (!key || isPlaceholder(key)) {
-    fail(1, '缺少有效 key。用法: node nature-vect.js init <KEY>（或设置环境变量 NATURE_VECT_API_KEY）。');
+    fail(1, '缺少有效 key。用法: node nature-vect.js init <KEY> [--base-url <URL>]（或设置环境变量 NATURE_VECT_API_KEY）。');
   }
   const cur = readConfig();
   const next = Object.assign({}, cur, { apiKey: String(key).trim() });
+  if (baseUrl) next.baseUrl = String(baseUrl).trim().replace(/\/+$/, '');
   writeConfig(next);
   log(`已写入用户级配置: ${CONFIG_PATH}`);
+  log(`服务地址: ${resolveBaseUrl()}`);
   log(`key 掩码: ${mask(next.apiKey)}（绝不入库，请注意保管）`);
 }
 
@@ -124,6 +139,7 @@ async function cmdCheck() {
   log(`配置文件: ${CONFIG_PATH}`);
   log(`配置文件 key: ${fileKey ? mask(fileKey) : '（未配置）'}`);
   log(`环境变量 key: ${hasEnv ? mask(process.env.NATURE_VECT_API_KEY) : '（未配置）'}`);
+  log(`服务地址: ${resolveBaseUrl()}`);
   log(`Node 版本: ${process.version}`);
 
   const key = resolveKey(null);
@@ -139,7 +155,7 @@ async function cmdCheck() {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 15000);
   try {
-    const res = await fetch(ENDPOINT, { method: 'GET', signal: ctrl.signal });
+    const res = await fetch(resolveBaseUrl() + ENDPOINT_PATH, { method: 'GET', signal: ctrl.signal });
     clearTimeout(timer);
     log(`服务可达: 转换服务返回 HTTP ${res.status}（GET 非业务调用，仅验证连通）`);
     log('校验结果: key 已配置、服务可达。可开始 convert。');
@@ -150,7 +166,7 @@ async function cmdCheck() {
 }
 
 // ---------- credit ----------
-async function cmdCredit(cliKey) {
+async function cmdCredit(cliKey, cliBaseUrl) {
   const key = resolveKey(cliKey);
   if (!key) fail(1, '未找到 API key。先运行 init，或设置 NATURE_VECT_API_KEY，或用 --key 临时传入。');
   if (isPlaceholder(key)) fail(1, '当前 key 疑似占位符，请先通过 init 写入真实 key。');
@@ -158,7 +174,7 @@ async function cmdCredit(cliKey) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 15000);
   try {
-    const res = await fetch(CREDIT_ENDPOINT, {
+    const res = await fetch(resolveBaseUrl(cliBaseUrl) + CREDIT_PATH, {
       method: 'GET',
       headers: { 'x-api-key': key },
       signal: ctrl.signal,
@@ -179,7 +195,7 @@ async function cmdCredit(cliKey) {
         return;
       }
       log(JSON.stringify({ ok: true, remaining }));
-      log(`剩余额度：${remaining} 次（1 次 ≈ 1 张图）`);
+      log(`剩余额度：${remaining} 次（5 次 ≈ 1 张图）`);
       return;
     }
 
@@ -292,6 +308,7 @@ async function cmdConvert(imagePath, opts) {
   form.append('config', JSON.stringify(cfg));
 
   const timeoutMs = opts.timeout || DEFAULT_TIMEOUT_MS;
+  const endpoint = resolveBaseUrl(opts.baseUrl) + ENDPOINT_PATH;
   let svgText = null;
   let lastErr = null;
 
@@ -299,7 +316,7 @@ async function cmdConvert(imagePath, opts) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
-      const res = await fetch(ENDPOINT, {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'x-api-key': key },
         body: form,
@@ -354,6 +371,7 @@ async function cmdConvert(imagePath, opts) {
   const size = Buffer.byteLength(svgText, 'utf8');
   log(JSON.stringify({ ok: true, svgPath: path.resolve(outPath), bytes: size, preset: opts.preset || 'default' }));
   log(`完成：SVG 已写入 ${path.resolve(outPath)}（${size} 字节）`);
+  log(THANKS);
 }
 
 // ---------- validate ----------
@@ -794,8 +812,10 @@ function main() {
   }
 
   if (sub === 'init') {
-    const argKey = rest.find((a) => !a.startsWith('-')) || undefined;
-    cmdInit(argKey || process.env.NATURE_VECT_API_KEY || '');
+    const bi = rest.indexOf('--base-url');
+    const argBase = bi >= 0 && rest[bi + 1] ? rest[bi + 1] : undefined;
+    const argKey = rest.find((a, i) => !a.startsWith('-') && !(bi >= 0 && i === bi + 1)) || undefined;
+    cmdInit(argKey || process.env.NATURE_VECT_API_KEY || '', argBase);
     return;
   }
 
@@ -807,7 +827,9 @@ function main() {
   if (sub === 'credit') {
     const idx = rest.indexOf('--key');
     const cliKey = idx >= 0 && rest[idx + 1] ? rest[idx + 1] : undefined;
-    cmdCredit(cliKey || '').catch((e) => fail(3, e && e.message ? e.message : String(e)));
+    const bidx = rest.indexOf('--base-url');
+    const cliBase = bidx >= 0 && rest[bidx + 1] ? rest[bidx + 1] : undefined;
+    cmdCredit(cliKey || '', cliBase).catch((e) => fail(3, e && e.message ? e.message : String(e)));
     return;
   }
 
@@ -834,6 +856,7 @@ function main() {
         case '--stroke-width': opts.strokeWidth = Number(take()); break;
         case '--extra': opts.extra = take(); break;
         case '--key': opts.key = take(); break;
+        case '--base-url': opts.baseUrl = take(); break;
         case '--timeout': opts.timeout = Number(take()); break;
         case '--no-non-scaling': opts.nonScaling = false; break;
         case '--no-adobe-compat': opts.adobeCompat = false; break;

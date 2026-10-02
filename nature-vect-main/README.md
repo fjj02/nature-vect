@@ -1,5 +1,7 @@
 # nature-vect
 
+> **网关版（nature-vect-gateway）**：默认走卖家自建网关 `http://123.56.95.34`，API key 为向卖家购买的**网关 key**（不是上游 key）。如需换地址或直连，用 `init <KEY> --base-url <URL>`、环境变量 `NATURE_VECT_BASE_URL` 或配置文件 `baseUrl` 覆盖。原始直连版为 `nature-vect-main/`。
+
 把位图（PNG / JPG / WebP…）转成**可在 Adobe Illustrator 2019–2026 中编辑**的矢量，默认交付 Illustrator 原生 `.ai`。以 Agent Skill 形式分发，兼容豆包 / Codex / opencode / Trae / Claude Code / Cursor / workbuddy 等多款 AI agent（基于 Agent Skills 开放标准，SKILL.md）。
 
 支持两种模式（默认都以 Illustrator 原生 `.ai` 交付，agent 自动开 AI 重绘；仅本机确实无 Illustrator 时经用户知情同意降级 `.svg`）：
